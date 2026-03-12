@@ -5,7 +5,7 @@ FastAPI main application entry point
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api import predict, plots, health
+from app.api import health, router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,8 +24,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(predict.router, prefix="/api/v1", tags=["prediction"])
-app.include_router(plots.router, prefix="/api/v1", tags=["analytics"])
+# app.include_router(predict.router, prefix="/api/v1", tags=["prediction"])
+app.include_router(router.router, prefix="/api/v1", tags=["analytics"])
 
 
 @app.get("/")

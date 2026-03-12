@@ -4,12 +4,9 @@ import { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-    HomeIcon,
-    ChartBarIcon,
     SparklesIcon,
-    Cog6ToothIcon,
-    ArrowLeftOnRectangleIcon,
 } from '@heroicons/react/24/outline'
+import { SiGoogleanalytics } from "react-icons/si";
 
 interface SidebarItemProps {
     href: string
@@ -25,8 +22,8 @@ function SidebarItem({ href, icon, label }: SidebarItemProps) {
         <Link
             href={href}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 transition ${isActive
-                    ? 'bg-blue-50 text-blue-600 font-semibold'
-                    : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-50 text-blue-600 font-semibold'
+                : 'text-gray-700 hover:bg-gray-100'
                 }`}
         >
             <div className="h-5 w-5">{icon}</div>
@@ -37,39 +34,21 @@ function SidebarItem({ href, icon, label }: SidebarItemProps) {
 
 export default function Sidebar() {
     return (
-        <aside className="w-64 border-r border-gray-200 bg-white p-4">
+        <aside className="w-64 border-r border-gray-200 bg-slate-200 p-4">
             <div className="space-y-1">
                 <SidebarItem
                     href="/"
-                    icon={<HomeIcon />}
-                    label="Dashboard"
+                    icon={<SiGoogleanalytics />}
+                    label="Analytics"
                 />
                 <SidebarItem
                     href="/predict"
                     icon={<SparklesIcon />}
                     label="Price Prediction"
                 />
-                <SidebarItem
-                    href="/analytics"
-                    icon={<ChartBarIcon />}
-                    label="Analytics"
-                />
+
             </div>
 
-            <div className="mt-8 border-t border-gray-200 pt-4">
-                <div className="space-y-1">
-                    <SidebarItem
-                        href="/settings"
-                        icon={<Cog6ToothIcon />}
-                        label="Settings"
-                    />
-                    <SidebarItem
-                        href="/logout"
-                        icon={<ArrowLeftOnRectangleIcon />}
-                        label="Logout"
-                    />
-                </div>
-            </div>
         </aside>
     )
 }

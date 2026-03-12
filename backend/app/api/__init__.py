@@ -1,5 +1,6 @@
 """API module initialization"""
 
-from app.api import health, predict, plots
+from app.api import health, analytics
+from app.api import router
 
-__all__ = ["health", "predict", "plots"]
+__all__ = ["health", "analytics", "router"]
