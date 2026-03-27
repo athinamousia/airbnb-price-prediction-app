@@ -19,7 +19,7 @@ export default function PriceAnalysisSection(props: {
                 <select
                     value={selected}
                     onChange={(e) => onChangeNeighbourhood(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
                 >
                     {data?.neighbourhoods.map((n) => (
                         <option key={n} value={n}>{n === 'all' ? 'All Neighbourhoods' : n}</option>
@@ -28,7 +28,7 @@ export default function PriceAnalysisSection(props: {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <div className="rounded-lg border bg-white p-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <h3 className="mb-3 text-sm font-semibold text-gray-700">Price Distribution</h3>
                     <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={histogramData} margin={{ top: 8, right: 8, left: 0, bottom: 50 }}>
@@ -41,7 +41,7 @@ export default function PriceAnalysisSection(props: {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="rounded-lg border bg-white p-4">
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                     <h3 className="mb-3 text-sm font-semibold text-gray-700">Avg Price by Neighbourhood</h3>
                     <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={data?.avg_by_neighbourhood ?? []} layout="vertical" margin={{ top: 8, right: 16, left: 90, bottom: 8 }}>

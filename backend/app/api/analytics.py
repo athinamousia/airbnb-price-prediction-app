@@ -178,5 +178,255 @@ class AnalyticsService:
         cache.set(cache_key, result)
         return result
 
+    def get_geo_distribution(self):
+        cache_key = "geo_distribution"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if self._df is None:
+            return []
+
+        cols = [
+            c
+            for c in ["latitude", "longitude", "neighbourhood_cleansed"]
+            if c in self._df.columns
+        ]
+        if not all(
+            c in self._df.columns
+            for c in ["latitude", "longitude", "neighbourhood_cleansed"]
+        ):
+            return []
+
+        df = self._df[["latitude", "longitude", "neighbourhood_cleansed"]].copy()
+        df["price"] = self._price_series()
+        df = df.dropna(subset=["latitude", "longitude", "price"])
+        df = df[df["price"] > 0]
+        df = df[df["price"] <= df["price"].quantile(0.99)]  # trim extreme outliers
+
+        result = [
+            {
+                "latitude": round(float(row["latitude"]), 6),
+                "longitude": round(float(row["longitude"]), 6),
+                "price": round(float(row["price"]), 2),
+                "neighbourhood": row["neighbourhood_cleansed"],
+            }
+            for _, row in df.iterrows()
+        ]
+
+        cache.set(cache_key, result)
+        return result
+
+    def get_geo_distribution_grouped(self):
+        cache_key = "geo_distribution_grouped"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if self._df is None:
+            return []
+
+        required = ["latitude", "longitude", "neighbourhood_cleansed"]
+        if not all(c in self._df.columns for c in required):
+            return []
+
+        df = self._df[["latitude", "longitude", "neighbourhood_cleansed"]].copy()
+        df["price"] = self._price_series()
+        df = df.dropna(subset=["latitude", "longitude", "price"])
+        df = df[df["price"] > 0]
+        df = df[df["price"] <= df["price"].quantile(0.99)]
+
+        grouped = (
+            df.groupby("neighbourhood_cleansed")
+            .agg(
+                latitude=("latitude", "mean"),
+                longitude=("longitude", "mean"),
+                avg_price=("price", "mean"),
+                count=("price", "count"),
+            )
+            .reset_index()
+        )
+
+        result = [
+            {
+                "neighbourhood": row["neighbourhood_cleansed"],
+                "latitude": round(float(row["latitude"]), 6),
+                "longitude": round(float(row["longitude"]), 6),
+                "avg_price": round(float(row["avg_price"]), 2),
+                "count": int(row["count"]),
+            }
+            for _, row in grouped.iterrows()
+        ]
+
+        cache.set(cache_key, result)
+        return result
+
+    def get_property_type_distribution(
+        self, neighbourhood: str = "all", room_type: str = "all"
+    ) -> Dict[str, Any]:
+        cache_key = f"property_type_distribution_{neighbourhood}_{room_type}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if self._df is None:
+            return {
+                "property_types": [],
+                "neighbourhoods": ["all"],
+                "room_types": ["all"],
+                "selected_neighbourhood": "all",
+                "selected_room_type": "all",
+            }
+
+        required = ["property_type", "neighbourhood_cleansed", "room_type"]
+        if not all(c in self._df.columns for c in required):
+            return {
+                "property_types": [],
+                "neighbourhoods": ["all"],
+                "room_types": ["all"],
+                "selected_neighbourhood": neighbourhood or "all",
+                "selected_room_type": room_type or "all",
+            }
+
+        neighbourhoods = sorted(
+            self._df["neighbourhood_cleansed"].dropna().astype(str).unique().tolist()
+        )
+        room_types = sorted(
+            self._df["room_type"].dropna().astype(str).unique().tolist()
+        )
+
+        df = self._df.copy()
+        if neighbourhood and neighbourhood != "all":
+            df = df[df["neighbourhood_cleansed"] == neighbourhood]
+        if room_type and room_type != "all":
+            df = df[df["room_type"] == room_type]
+
+        distribution = df["property_type"].dropna().astype(str).value_counts().head(12)
+
+        result = {
+            "property_types": [
+                {"property_type": key, "count": int(value)}
+                for key, value in distribution.items()
+            ],
+            "neighbourhoods": ["all"] + neighbourhoods,
+            "room_types": ["all"] + room_types,
+            "selected_neighbourhood": neighbourhood or "all",
+            "selected_room_type": room_type or "all",
+        }
+
+        cache.set(cache_key, result)
+        return result
+
+    def get_host_insights(
+        self, neighbourhood: str = "all", room_type: str = "all"
+    ) -> Dict[str, Any]:
+        cache_key = f"host_insights_{neighbourhood}_{room_type}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if self._df is None:
+            return {
+                "superhost_percentage": 0.0,
+                "superhost_count": 0,
+                "non_superhost_count": 0,
+                "response_time_distribution": [],
+                "neighbourhoods": ["all"],
+                "room_types": ["all"],
+                "selected_neighbourhood": "all",
+                "selected_room_type": "all",
+            }
+
+        neighbourhoods = (
+            sorted(
+                self._df["neighbourhood_cleansed"]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            )
+            if "neighbourhood_cleansed" in self._df.columns
+            else []
+        )
+        room_types = (
+            sorted(self._df["room_type"].dropna().astype(str).unique().tolist())
+            if "room_type" in self._df.columns
+            else []
+        )
+
+        df = self._df.copy()
+        if (
+            "neighbourhood_cleansed" in df.columns
+            and neighbourhood
+            and neighbourhood != "all"
+        ):
+            df = df[df["neighbourhood_cleansed"] == neighbourhood]
+        if "room_type" in df.columns and room_type and room_type != "all":
+            df = df[df["room_type"] == room_type]
+
+        if "host_is_superhost" in df.columns:
+            superhost_series = (
+                df["host_is_superhost"]
+                .astype(str)
+                .str.lower()
+                .isin(["t", "true", "1", "yes"])
+            )
+            superhost_count = int(superhost_series.sum())
+            non_superhost_count = int((~superhost_series).sum())
+            total_known = superhost_count + non_superhost_count
+            superhost_percentage = (
+                float((superhost_count / total_known) * 100) if total_known > 0 else 0.0
+            )
+        else:
+            superhost_count = 0
+            non_superhost_count = 0
+            superhost_percentage = 0.0
+
+        response_distribution = []
+        if "host_response_time" in df.columns:
+            ordered_labels = [
+                "within an hour",
+                "within a few hours",
+                "within a day",
+                "a few days or more",
+            ]
+            normalized = (
+                df["host_response_time"]
+                .fillna("unknown")
+                .astype(str)
+                .str.strip()
+                .str.lower()
+            )
+
+            counts = normalized.value_counts()
+            response_distribution = [
+                {
+                    "response_time": label,
+                    "count": int(counts.get(label, 0)),
+                }
+                for label in ordered_labels
+                if int(counts.get(label, 0)) > 0
+            ]
+
+            unknown_count = int(counts.get("unknown", 0))
+            if unknown_count > 0:
+                response_distribution.append(
+                    {"response_time": "unknown", "count": unknown_count}
+                )
+
+        result = {
+            "superhost_percentage": round(superhost_percentage, 2),
+            "superhost_count": superhost_count,
+            "non_superhost_count": non_superhost_count,
+            "response_time_distribution": response_distribution,
+            "neighbourhoods": ["all"] + neighbourhoods,
+            "room_types": ["all"] + room_types,
+            "selected_neighbourhood": neighbourhood or "all",
+            "selected_room_type": room_type or "all",
+        }
+
+        cache.set(cache_key, result)
+        return result
+
 
 analytics_service = AnalyticsService()

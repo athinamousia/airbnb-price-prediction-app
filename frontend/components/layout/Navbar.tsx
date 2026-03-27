@@ -13,7 +13,7 @@ export default function Navbar() {
 
     return (
         <nav className="border-b border-gray-200 bg-slate-900 text-white">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+            <div className="flex w-full items-center justify-start px-6 py-4">
                 <Link href="/" className="text-lg font-bold text-white">
                     Airbnb Price Analysis
                 </Link>
