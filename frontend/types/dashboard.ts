@@ -47,3 +47,21 @@ export interface HostInsights {
     selected_neighbourhood: string
     selected_room_type: string
 }
+
+export interface PredictionOptionColumn {
+    name: string
+    display_name: string
+    description: string
+    type: 'string' | 'number'
+    input_kind: 'select' | 'number' | 'multi_select'
+    option_count: number
+    options: Array<string | number>
+    default?: string | number | string[]
+    min?: number
+    max?: number
+    step?: number
+}
+
+export interface PredictionOptionsResponse {
+    columns: PredictionOptionColumn[]
+}

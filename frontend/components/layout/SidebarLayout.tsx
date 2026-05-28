@@ -10,10 +10,10 @@ interface SidebarLayoutProps {
 
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Navbar />
-            <div className="flex">
-                <Sidebar />
+        <div className="flex min-h-screen bg-[#F4F5F7]">
+            <Sidebar />
+            <div className="flex flex-1 flex-col">
+                <Navbar />
                 <main className="flex-1 overflow-auto p-8">
                     {children}
                 </main>

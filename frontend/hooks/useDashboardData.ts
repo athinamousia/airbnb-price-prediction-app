@@ -57,7 +57,7 @@ export function useDashboardData() {
 
     const histogramData = useMemo(
         () =>
-            priceAnalysis?.histogram.labels.map((label, i) => ({
+            priceAnalysis?.histogram?.labels?.map((label, i) => ({
                 range: label,
                 count: priceAnalysis.histogram.counts[i] ?? 0,
             })) ?? [],

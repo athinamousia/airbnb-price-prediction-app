@@ -15,10 +15,10 @@ import 'leaflet/dist/leaflet.css'
 type PriceRange = { min: number; max: number; color: string }
 
 const PRICE_RANGES: PriceRange[] = [
-    { min: 0, max: 50, color: '#22c55e' },
-    { min: 50, max: 100, color: '#f59e0b' },
-    { min: 100, max: 150, color: '#f97316' },
-    { min: 150, max: Number.POSITIVE_INFINITY, color: '#ef4444' },
+    { min: 0, max: 50, color: '#34B1AA' },
+    { min: 50, max: 100, color: '#E0B50F' },
+    { min: 100, max: 150, color: '#F29F67' },
+    { min: 150, max: Number.POSITIVE_INFINITY, color: '#E05858' },
 ]
 
 function getColor(price: number, ranges: PriceRange[]): string {
@@ -77,8 +77,10 @@ export default function GeoMap() {
     )
 
     return (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-gray-800">Geographic Distribution by Neighbourhood</h2>
+        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-gray-600">
+                Geographic Distribution by Neighbourhood
+            </p>
 
             {loading ? (
                 <div className="flex h-[400px] items-center justify-center text-gray-400">Loading map...</div>
@@ -118,8 +120,8 @@ export default function GeoMap() {
                     </MapContainer>
 
                     {/* Legend */}
-                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-600">
-                        <span className="font-medium">Price:</span>
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-700">
+                        <span className="font-medium text-[#1E1E2C]">Price:</span>
                         {activePriceRanges.map((range) => (
                             <span key={`${range.min}-${range.max}`} className="flex items-center gap-1">
                                 <span

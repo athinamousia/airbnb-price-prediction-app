@@ -2,9 +2,23 @@
 
 :root {
     color-scheme: light;
+    --color-brand-orange: #F29F67;
+    --color-brand-dark: #1E1E2C;
+    --color-brand-blue: #3B8FF3;
+    --color-brand-teal: #34B1AA;
+    --color-brand-gold: #E0B50F;
+}
+
+body {
+    background-color: #F4F5F7;
+    -webkit-font-smoothing: antialiased;
 }
 
 a {
     color: inherit;
     text-decoration: none;
+}
+
+* {
+    box-sizing: border-box;
 }
