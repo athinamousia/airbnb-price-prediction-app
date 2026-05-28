@@ -1,6 +1,6 @@
 from typing import Any, Optional
 from datetime import datetime, timedelta
-from app.core.config import settings
+from backend.app.core.config import settings
 
 
 class SimpleCache:

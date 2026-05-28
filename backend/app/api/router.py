@@ -2,9 +2,18 @@
 Analytics and plots endpoint
 """
 
+from typing import Any, Dict
+
 from fastapi import APIRouter, HTTPException, status
-from app.core.logging import logger
-from app.api.analytics import analytics_service
+from pydantic import BaseModel
+
+from backend.app.core.logging import logger
+from backend.app.api.analytics import analytics_service
+
+
+class PredictionRequest(BaseModel):
+    inputs: Dict[str, Any]
+
 
 router = APIRouter()
 
@@ -80,4 +89,34 @@ def get_host_insights(neighbourhood: str = "all", room_type: str = "all"):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving host insights",
+        )
+
+
+@router.get("/prediction-options")
+def get_prediction_options():
+    try:
+        return analytics_service.get_prediction_options()
+    except Exception as e:
+        logger.error(f"Error retrieving prediction options: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving prediction options",
+        )
+
+
+@router.post("/predict")
+async def predict_price(request: PredictionRequest):
+    try:
+        return analytics_service.predict_price(request.inputs)
+    except FileNotFoundError as e:
+        logger.warning(f"Model artifact missing: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model artifact not found. Please train the model first.",
+        )
+    except Exception as e:
+        logger.error(f"Error during price prediction: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error computing price prediction",
         )

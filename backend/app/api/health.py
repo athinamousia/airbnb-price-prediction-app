@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from app.core.config import settings
-from app.models.model_loader import model_loader
+from backend.app.core.config import settings
+from backend.modeling.model_loader import model_loader
 
 router = APIRouter()
 
