@@ -240,6 +240,24 @@ class AnalyticsService:
             return "No"
         return None
 
+    @staticmethod
+    def _boxplot_stats(
+        series: pd.Series, min_count: int = 5
+    ) -> Optional[Dict[str, Any]]:
+        s = pd.to_numeric(series, errors="coerce").dropna()
+        if len(s) < min_count:
+            return None
+        p5, p95 = float(s.quantile(0.05)), float(s.quantile(0.95))
+        s = s.clip(p5, p95)
+        return {
+            "min": round(float(s.min()), 2),
+            "q1": round(float(s.quantile(0.25)), 2),
+            "median": round(float(s.median()), 2),
+            "q3": round(float(s.quantile(0.75)), 2),
+            "max": round(float(s.max()), 2),
+            "count": int(len(s)),
+        }
+
     def get_prediction_options(self) -> Dict[str, Any]:
         cache_key = "prediction_options_v5"
         cached = cache.get(cache_key)
@@ -596,6 +614,25 @@ class AnalyticsService:
             )
             superhost_percentage = float(superhost.mean() * 100)
 
+        instant_bookable_pct = 0.0
+        if "instant_bookable" in self._df.columns:
+            ib = (
+                self._df["instant_bookable"]
+                .astype(str)
+                .str.lower()
+                .isin(["t", "true", "1", "yes"])
+            )
+            instant_bookable_pct = round(float(ib.mean() * 100), 2)
+
+        avg_min_nights = 0.0
+        if "minimum_nights" in self._df.columns:
+            mn = pd.to_numeric(self._df["minimum_nights"], errors="coerce").clip(1, 90)
+            avg_min_nights = round(float(mn.mean()), 1) if not mn.empty else 0.0
+
+        total_hosts = 0
+        if "host_id" in self._df.columns:
+            total_hosts = int(self._df["host_id"].nunique())
+
         result = {
             "total_listings": total_listings,
             "avg_price_per_night": round(avg_price, 2),
@@ -604,6 +641,9 @@ class AnalyticsService:
                 round(avg_review_score, 2) if avg_review_score else None
             ),
             "superhost_percentage": round(superhost_percentage, 2),
+            "instant_bookable_pct": instant_bookable_pct,
+            "avg_min_nights": avg_min_nights,
+            "total_hosts": total_hosts,
         }
         cache.set(cache_key, result)
         return result
@@ -654,6 +694,29 @@ class AnalyticsService:
                 "median": round(float(prices.median()), 2),
                 "mean": round(float(prices.mean()), 2),
             }
+            kde_values: List = []
+            if len(prices) >= 10:
+                arr = prices.values.astype(float)
+                h = 1.06 * float(np.std(arr)) * len(arr) ** (-0.2)
+                if h > 0:
+                    midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+                    rng = np.random.default_rng(42)
+                    sample = (
+                        arr
+                        if len(arr) <= 3000
+                        else rng.choice(arr, 3000, replace=False)
+                    )
+                    diff = (midpoints[:, None] - sample[None, :]) / h
+                    density = np.mean(
+                        np.exp(-0.5 * diff**2) / (h * np.sqrt(2 * np.pi)), axis=1
+                    )
+                    bw = (
+                        float(bin_edges[1] - bin_edges[0])
+                        if len(bin_edges) > 1
+                        else 1.0
+                    )
+                    kde_values = [round(float(d) * len(arr) * bw, 2) for d in density]
+
         else:
             counts, labels = np.array([]), []
             stats = {"min": 0, "max": 0, "median": 0, "mean": 0}
@@ -669,10 +732,73 @@ class AnalyticsService:
             .head(15)
         )
 
+        # Neighbourhood comparison table (always over full dataset)
+        nb_comparison: List = []
+        if "neighbourhood_cleansed" in self._df.columns:
+            nb_df = self._df.copy()
+            nb_df["_price"] = self._price_series(nb_df)
+            nb_df["_sh"] = (
+                nb_df["host_is_superhost"]
+                .astype(str)
+                .str.lower()
+                .isin(["t", "true", "1", "yes"])
+                if "host_is_superhost" in nb_df.columns
+                else False
+            )
+            rating_col = next(
+                (c for c in ["review_scores_rating"] if c in nb_df.columns), None
+            )
+            has_rating = False
+            if rating_col:
+                nb_df["_rating"] = pd.to_numeric(nb_df[rating_col], errors="coerce")
+                nb_df["_rating"] = nb_df["_rating"].where(
+                    nb_df["_rating"] <= 5, nb_df["_rating"] / 20
+                )
+                has_rating = True
+            else:
+                nb_df["_rating"] = pd.Series(dtype="float64", index=nb_df.index)
+
+            agg = (
+                nb_df.groupby("neighbourhood_cleansed")
+                .agg(
+                    count=("_price", "count"),
+                    avg_price=(
+                        "_price",
+                        lambda x: (
+                            round(float(x.dropna().mean()), 2)
+                            if not x.dropna().empty
+                            else None
+                        ),
+                    ),
+                    avg_rating=(
+                        "_rating",
+                        lambda x: (
+                            round(float(x.dropna().mean()), 2)
+                            if has_rating and not x.dropna().empty
+                            else None
+                        ),
+                    ),
+                    superhost_pct=("_sh", lambda x: round(float(x.mean() * 100), 1)),
+                )
+                .reset_index()
+                .sort_values("avg_price", ascending=False)
+            )
+            nb_comparison = [
+                {
+                    "neighbourhood": row["neighbourhood_cleansed"],
+                    "count": int(row["count"]),
+                    "avg_price": row["avg_price"],
+                    "avg_rating": row.get("avg_rating"),
+                    "superhost_pct": row["superhost_pct"],
+                }
+                for _, row in agg.iterrows()
+            ]
+
         result = {
             "histogram": {
                 "labels": labels,
                 "counts": counts.tolist(),
+                "kde": kde_values,
             },
             "neighbourhoods": ["all"] + neighbourhoods,
             "avg_by_neighbourhood": [
@@ -681,6 +807,7 @@ class AnalyticsService:
             ],
             "selected": neighbourhood or "all",
             "stats": stats,
+            "neighbourhood_comparison": nb_comparison,
         }
 
         cache.set(cache_key, result)
@@ -766,6 +893,396 @@ class AnalyticsService:
             for _, row in grouped.iterrows()
         ]
 
+        cache.set(cache_key, result)
+        return result
+
+    def get_host_analytics(self, neighbourhood: str = "all") -> Dict[str, Any]:
+        cache_key = f"host_analytics_v3_{neighbourhood}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        empty: Dict[str, Any] = {
+            "price_by_superhost": [],
+            "price_by_response_rate": [],
+            "correlations": [],
+            "avg_price_by_response_time": [],
+            "host_tenure_vs_price": [],
+            "portfolio_size_vs_price": [],
+            "instant_bookable_vs_price": [],
+        }
+        if self._df is None:
+            return empty
+
+        df = self._df.copy()
+        df["_price"] = self._price_series(df)
+        df = df[df["_price"].notna() & (df["_price"] > 0)]
+        if df.empty:
+            return empty
+        df = df[df["_price"] <= df["_price"].quantile(0.95)]
+
+        if (
+            neighbourhood
+            and neighbourhood != "all"
+            and "neighbourhood_cleansed" in df.columns
+        ):
+            df = df[df["neighbourhood_cleansed"] == neighbourhood]
+        if df.empty:
+            return empty
+
+        # 1. Price by superhost
+        price_by_superhost: List = []
+        if "host_is_superhost" in df.columns:
+            df["_sh"] = (
+                df["host_is_superhost"]
+                .astype(str)
+                .str.lower()
+                .map(
+                    lambda v: (
+                        "Superhost"
+                        if v in {"t", "true", "1", "yes"}
+                        else "Non-Superhost"
+                    )
+                )
+            )
+            for label in ["Superhost", "Non-Superhost"]:
+                bp = self._boxplot_stats(df.loc[df["_sh"] == label, "_price"])
+                if bp:
+                    price_by_superhost.append({"category": label, **bp})
+
+        # 2. Price by response rate bucket
+        price_by_response_rate: List = []
+        if "host_response_rate" in df.columns:
+            rate = self._normalize_percent_series(df["host_response_rate"])
+            buckets = pd.cut(
+                rate,
+                bins=[0, 25, 50, 75, 100],
+                labels=["0–25%", "25–50%", "50–75%", "75–100%"],
+                include_lowest=True,
+            )
+            for bucket in ["0–25%", "25–50%", "50–75%", "75–100%"]:
+                bp = self._boxplot_stats(df.loc[buckets == bucket, "_price"])
+                if bp:
+                    price_by_response_rate.append({"category": bucket, **bp})
+
+        # 3. Correlations
+        correlations: List = []
+        for feat in [
+            "host_response_rate",
+            "host_acceptance_rate",
+            "review_scores_rating",
+            "review_scores_location",
+            "review_scores_cleanliness",
+            "review_scores_value",
+        ]:
+            if feat not in df.columns:
+                continue
+            vals = (
+                self._normalize_percent_series(df[feat])
+                if feat in self.FORCE_NUMERIC_COLUMNS
+                else pd.to_numeric(df[feat], errors="coerce")
+            )
+            combined = pd.DataFrame({"p": df["_price"], "v": vals}).dropna()
+            if len(combined) >= 10:
+                corr = float(combined["p"].corr(combined["v"]))
+                if not np.isnan(corr):
+                    correlations.append(
+                        {
+                            "feature": self._to_display_name(feat),
+                            "correlation": round(corr, 3),
+                        }
+                    )
+
+        # 4. Avg price by response time
+        avg_price_by_response_time: List = []
+        if "host_response_time" in df.columns:
+            order = [
+                "within an hour",
+                "within a few hours",
+                "within a day",
+                "a few days or more",
+            ]
+            norm = df["host_response_time"].astype(str).str.strip().str.lower()
+            grouped = df.assign(_rt=norm).groupby("_rt")["_price"]
+            avg = grouped.mean().round(2)
+            counts = grouped.count()
+            for label in order:
+                if label in avg.index:
+                    avg_price_by_response_time.append(
+                        {
+                            "response_time": label,
+                            "avg_price": round(float(avg[label]), 2),
+                            "count": int(counts.get(label, 0)),
+                        }
+                    )
+
+        # Host tenure vs price
+        host_tenure_vs_price: List = []
+        if "host_since" in df.columns:
+            df["_host_since"] = pd.to_datetime(df["host_since"], errors="coerce")
+            now = pd.Timestamp.now()
+            df["_years"] = ((now - df["_host_since"]).dt.days / 365).round(0)
+            tenure_order = ["< 1 year", "1–3 years", "3–5 years", "5+ years"]
+
+            def _tenure_bucket(v):
+                if pd.isna(v):
+                    return None
+                v = float(v)
+                if v < 1:
+                    return "< 1 year"
+                if v <= 3:
+                    return "1–3 years"
+                if v <= 5:
+                    return "3–5 years"
+                return "5+ years"
+
+            df["_tenure"] = df["_years"].apply(_tenure_bucket)
+            for label in tenure_order:
+                bp = self._boxplot_stats(df.loc[df["_tenure"] == label, "_price"])
+                if bp:
+                    host_tenure_vs_price.append({"category": label, **bp})
+
+        # Portfolio size vs price
+        portfolio_size_vs_price: List = []
+        if "calculated_host_listings_count" in df.columns:
+            cnt = pd.to_numeric(df["calculated_host_listings_count"], errors="coerce")
+            portfolio_order = ["1 listing", "2–5", "6–10", "10+"]
+
+            def _portfolio_bucket(v):
+                if pd.isna(v):
+                    return None
+                v = int(v)
+                if v <= 1:
+                    return "1 listing"
+                if v <= 5:
+                    return "2–5"
+                if v <= 10:
+                    return "6–10"
+                return "10+"
+
+            df["_portfolio"] = cnt.apply(_portfolio_bucket)
+            for label in portfolio_order:
+                bp = self._boxplot_stats(df.loc[df["_portfolio"] == label, "_price"])
+                if bp:
+                    portfolio_size_vs_price.append({"category": label, **bp})
+
+        # Instant bookable vs price
+        instant_bookable_vs_price: List = []
+        if "instant_bookable" in df.columns:
+            df["_ib"] = (
+                df["instant_bookable"]
+                .astype(str)
+                .str.lower()
+                .map(
+                    lambda v: (
+                        "Instant Book"
+                        if v in {"t", "true", "1", "yes"}
+                        else "Request to Book"
+                    )
+                )
+            )
+            for label in ["Instant Book", "Request to Book"]:
+                bp = self._boxplot_stats(df.loc[df["_ib"] == label, "_price"])
+                if bp:
+                    instant_bookable_vs_price.append({"category": label, **bp})
+
+        result = {
+            "price_by_superhost": price_by_superhost,
+            "price_by_response_rate": price_by_response_rate,
+            "correlations": sorted(
+                correlations, key=lambda x: abs(x["correlation"]), reverse=True
+            ),
+            "avg_price_by_response_time": avg_price_by_response_time,
+            "host_tenure_vs_price": host_tenure_vs_price,
+            "portfolio_size_vs_price": portfolio_size_vs_price,
+            "instant_bookable_vs_price": instant_bookable_vs_price,
+        }
+        cache.set(cache_key, result)
+        return result
+
+    def get_property_analytics(self) -> Dict[str, Any]:
+        cache_key = "property_analytics_v6"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        empty: Dict[str, Any] = {
+            "price_by_bedrooms": [],
+            "price_by_beds": [],
+            "price_by_bathrooms": [],
+            "top_amenities": [],
+            "price_vs_reviews": [],
+        }
+        if self._df is None:
+            return empty
+
+        df = self._df.copy()
+        df["_price"] = self._price_series(df)
+        df = df[df["_price"].notna() & (df["_price"] > 0)]
+        if df.empty:
+            return empty
+        df = df[df["_price"] <= df["_price"].quantile(0.95)]
+
+        def _box_series(col: str, max_val: int, label_fn) -> List:
+            if col not in df.columns:
+                return []
+            nums = pd.to_numeric(df[col], errors="coerce").round().clip(1, max_val)
+            out = []
+            for v in sorted(nums.dropna().unique()):
+                bp = self._boxplot_stats(df.loc[nums == v, "_price"])
+                if bp:
+                    out.append({"category": label_fn(int(v)), **bp})
+            return out
+
+        price_by_bedrooms = _box_series(
+            "bedrooms", 5, lambda v: f"{v} bed{'s' if v > 1 else ''}"
+        )
+        price_by_beds = _box_series(
+            "beds", 6, lambda v: f"{v} bed{'s' if v > 1 else ''}"
+        )
+
+        price_by_bathrooms = _box_series(
+            "bathrooms", 5, lambda v: f"{v} bath{'s' if v > 1 else ''}"
+        )
+        if not price_by_bathrooms and "bathrooms_text" in df.columns:
+            df["_bath"] = (
+                pd.to_numeric(
+                    df["bathrooms_text"].astype(str).str.extract(r"(\d+(?:\.\d+)?)")[0],
+                    errors="coerce",
+                )
+                .round()
+                .clip(1, 5)
+            )
+            for v in sorted(df["_bath"].dropna().unique()):
+                bp = self._boxplot_stats(df.loc[df["_bath"] == v, "_price"])
+                if bp:
+                    price_by_bathrooms.append(
+                        {"category": f"{int(v)} bath{'s' if v > 1 else ''}", **bp}
+                    )
+
+        # Top amenities
+        top_amenities: List = []
+        if "amenities" in df.columns:
+            amenity_map: Dict[str, list] = {}
+            for _, row in df[["amenities", "_price"]].dropna().iterrows():
+                for tok in self._parse_list_cell(row["amenities"]):
+                    t = tok.strip().lower()
+                    if t:
+                        amenity_map.setdefault(t, []).append(row["_price"])
+            total_listings = len(df[["amenities", "_price"]].dropna())
+            top_amenities = [
+                {
+                    "amenity": tok.title(),
+                    "count": len(prices),
+                    "pct": (
+                        round(len(prices) / total_listings * 100, 1)
+                        if total_listings > 0
+                        else 0
+                    ),
+                    "avg_price": round(float(np.mean(prices)), 2),
+                }
+                for tok, prices in sorted(
+                    amenity_map.items(), key=lambda x: len(x[1]), reverse=True
+                )[:20]
+            ]
+
+        # Price vs reviews (sampled scatter)
+        price_vs_reviews: List = []
+        if "reviews_per_month" in df.columns and "room_type" in df.columns:
+            sub = df[["reviews_per_month", "_price", "room_type"]].copy()
+            sub["reviews_per_month"] = pd.to_numeric(
+                sub["reviews_per_month"], errors="coerce"
+            )
+            sub = sub.dropna()
+            sub = sub[
+                sub["reviews_per_month"] <= sub["reviews_per_month"].quantile(0.95)
+            ]
+            if len(sub) > 600:
+                sub = sub.sample(600, random_state=42)
+            price_vs_reviews = [
+                {
+                    "reviews_per_month": round(float(r["reviews_per_month"]), 2),
+                    "price": round(float(r["_price"]), 2),
+                    "room_type": str(r["room_type"]),
+                }
+                for _, r in sub.iterrows()
+            ]
+
+        # Price by accommodates
+        price_by_accommodates = _box_series(
+            "accommodates", 8, lambda v: f"{v} guest{'s' if v > 1 else ''}"
+        )
+
+        # Review scores radar
+        review_scores_radar: List = []
+        radar_cols = {
+            "review_scores_cleanliness": "Cleanliness",
+            "review_scores_location": "Location",
+            "review_scores_value": "Value",
+            "review_scores_checkin": "Check-in",
+            "review_scores_communication": "Communication",
+        }
+        for col, label in radar_cols.items():
+            if col in df.columns:
+                vals = pd.to_numeric(df[col], errors="coerce").dropna()
+                if not vals.empty:
+                    avg = float(vals.mean())
+                    normalized = avg / 20 if avg > 5 else avg
+                    review_scores_radar.append(
+                        {"subject": label, "score": round(normalized, 2), "fullMark": 5}
+                    )
+
+        # Price vs overall rating (scatter)
+        price_vs_rating: List = []
+        if "review_scores_rating" in df.columns:
+            rating = pd.to_numeric(df["review_scores_rating"], errors="coerce")
+            rating_norm = rating.where(rating <= 5, rating / 20)
+            sub = pd.DataFrame({"_price": df["_price"], "rating": rating_norm}).dropna()
+            sub = sub[sub["rating"] > 0]
+            if len(sub) > 500:
+                sub = sub.sample(500, random_state=42)
+            price_vs_rating = [
+                {
+                    "rating": round(float(r["rating"]), 2),
+                    "price": round(float(r["_price"]), 2),
+                }
+                for _, r in sub.iterrows()
+            ]
+
+        # Minimum nights distribution (histogram, capped at 30)
+        min_nights_distribution: List = []
+        if "minimum_nights" in df.columns:
+            mn = pd.to_numeric(df["minimum_nights"], errors="coerce").dropna()
+            mn = mn[(mn >= 1) & (mn <= 365)].astype(int)
+            if not mn.empty:
+                mn_counts = mn.value_counts().sort_index()
+                min_nights_distribution = [
+                    {"nights": int(k), "count": int(v)} for k, v in mn_counts.items()
+                ]
+
+        # Maximum nights distribution (capped at 365, individual counts)
+        max_nights_distribution: List = []
+        if "maximum_nights" in df.columns:
+            mx = pd.to_numeric(df["maximum_nights"], errors="coerce").dropna()
+            mx = mx[(mx >= 1) & (mx <= 365)].astype(int)
+            if not mx.empty:
+                mx_counts = mx.value_counts().sort_index()
+                max_nights_distribution = [
+                    {"nights": int(k), "count": int(v)} for k, v in mx_counts.items()
+                ]
+
+        result = {
+            "price_by_bedrooms": price_by_bedrooms,
+            "price_by_beds": price_by_beds,
+            "price_by_bathrooms": price_by_bathrooms,
+            "top_amenities": top_amenities,
+            "price_vs_reviews": price_vs_reviews,
+            "price_by_accommodates": price_by_accommodates,
+            "review_scores_radar": review_scores_radar,
+            "price_vs_rating": price_vs_rating,
+            "min_nights_distribution": min_nights_distribution,
+            "max_nights_distribution": max_nights_distribution,
+        }
         cache.set(cache_key, result)
         return result
 
@@ -933,6 +1450,112 @@ class AnalyticsService:
             "selected_room_type": room_type or "all",
         }
 
+        cache.set(cache_key, result)
+        return result
+
+    def get_availability_analytics(self) -> Dict[str, Any]:
+        cache_key = "availability_analytics_v1"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        empty: Dict[str, Any] = {
+            "avg_availability": [],
+            "occupancy_by_neighbourhood": [],
+            "price_vs_availability": [],
+            "availability_by_room_type": [],
+        }
+        if self._df is None:
+            return empty
+
+        df = self._df.copy()
+        df["_price"] = self._price_series(df)
+
+        avail_cols = {
+            "availability_30": ("30 days", 30),
+            "availability_60": ("60 days", 60),
+            "availability_90": ("90 days", 90),
+            "availability_365": ("365 days", 365),
+        }
+
+        # 1. Avg availability funnel
+        avg_availability: List = []
+        for col, (label, max_days) in avail_cols.items():
+            if col in df.columns:
+                vals = (
+                    pd.to_numeric(df[col], errors="coerce").clip(0, max_days).dropna()
+                )
+                if not vals.empty:
+                    avg_avail = float(vals.mean())
+                    avg_occ = (1 - avg_avail / max_days) * 100
+                    avg_availability.append(
+                        {
+                            "window": label,
+                            "avg_available_days": round(avg_avail, 1),
+                            "avg_occupancy_pct": round(avg_occ, 1),
+                            "max_days": max_days,
+                        }
+                    )
+
+        # 2. Occupancy rate by neighbourhood (top 15 by occupancy)
+        occupancy_by_neighbourhood: List = []
+        if "neighbourhood_cleansed" in df.columns and "availability_365" in df.columns:
+            df["_avail365"] = pd.to_numeric(
+                df["availability_365"], errors="coerce"
+            ).clip(0, 365)
+            df["_occ"] = (365 - df["_avail365"]) / 365 * 100
+            occ_by_nb = (
+                df.groupby("neighbourhood_cleansed")["_occ"]
+                .mean()
+                .dropna()
+                .sort_values(ascending=False)
+                .head(15)
+            )
+            occupancy_by_neighbourhood = [
+                {"neighbourhood": k, "occupancy_pct": round(float(v), 1)}
+                for k, v in occ_by_nb.items()
+            ]
+
+        # 3. Price vs availability_365 scatter (sampled)
+        price_vs_availability: List = []
+        if "availability_365" in df.columns:
+            avail = pd.to_numeric(df["availability_365"], errors="coerce").clip(0, 365)
+            sub = pd.DataFrame({"avail": avail, "price": df["_price"]}).dropna()
+            sub = sub[
+                (sub["price"] > 0) & (sub["price"] <= sub["price"].quantile(0.95))
+            ]
+            if len(sub) > 600:
+                sub = sub.sample(600, random_state=42)
+            price_vs_availability = [
+                {"availability": int(r["avail"]), "price": round(float(r["price"]), 2)}
+                for _, r in sub.iterrows()
+            ]
+
+        # 4. Avg availability by room type
+        availability_by_room_type: List = []
+        if "room_type" in df.columns:
+            for col, (_, max_days) in avail_cols.items():
+                if col in df.columns:
+                    df[f"_{col}"] = pd.to_numeric(df[col], errors="coerce").clip(
+                        0, max_days
+                    )
+            for rt in sorted(df["room_type"].dropna().astype(str).unique()):
+                row: Dict[str, Any] = {"room_type": rt}
+                mask = df["room_type"] == rt
+                for col in avail_cols:
+                    if f"_{col}" in df.columns:
+                        vals = df.loc[mask, f"_{col}"].dropna()
+                        row[col] = (
+                            round(float(vals.mean()), 1) if not vals.empty else None
+                        )
+                availability_by_room_type.append(row)
+
+        result = {
+            "avg_availability": avg_availability,
+            "occupancy_by_neighbourhood": occupancy_by_neighbourhood,
+            "price_vs_availability": price_vs_availability,
+            "availability_by_room_type": availability_by_room_type,
+        }
         cache.set(cache_key, result)
         return result
 

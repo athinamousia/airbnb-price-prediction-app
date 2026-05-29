@@ -12,25 +12,19 @@ const Tooltip = dynamic(() => import('react-leaflet').then(m => m.Tooltip), { ss
 
 import 'leaflet/dist/leaflet.css'
 
-type PriceRange = { min: number; max: number; color: string }
+type PriceRange = { min: number; max: number; color: string; label: string }
 
 const PRICE_RANGES: PriceRange[] = [
-    { min: 0, max: 50, color: '#34B1AA' },
-    { min: 50, max: 100, color: '#E0B50F' },
-    { min: 100, max: 150, color: '#F29F67' },
-    { min: 150, max: Number.POSITIVE_INFINITY, color: '#E05858' },
+    { min: 0, max: 50, color: '#34B1AA', label: '< $40' },
+    { min: 40, max: 60, color: '#84CC16', label: '$40–60' },
+    { min: 60, max: 80, color: '#E0B50F', label: '$60–80' },
+    { min: 80, max: 100, color: '#F29F67', label: '$80–100' },
+    { min: 100, max: Number.POSITIVE_INFINITY, color: '#E05858', label: '> $100' },
 ]
 
-function getColor(price: number, ranges: PriceRange[]): string {
-    const matched = ranges.find((range) => price >= range.min && price < range.max)
-    return matched?.color ?? ranges[ranges.length - 1]?.color ?? '#22c55e'
-}
-
-function formatRangeLabel(range: PriceRange): string {
-    if (!Number.isFinite(range.max)) {
-        return `>$${Math.floor(range.min)}`
-    }
-    return `$${Math.floor(range.min)}–${Math.floor(range.max)}`
+function getColor(price: number): string {
+    return PRICE_RANGES.find(r => price >= r.min && price < r.max)?.color
+        ?? PRICE_RANGES[PRICE_RANGES.length - 1].color
 }
 
 function getRadius(count: number, maxCount: number): number {
@@ -70,11 +64,6 @@ export default function GeoMap() {
     const centerLat = points.length ? points.reduce((s, p) => s + p.latitude, 0) / points.length : 0
     const centerLng = points.length ? points.reduce((s, p) => s + p.longitude, 0) / points.length : 0
     const maxCount = points.length ? Math.max(...points.map(p => p.count)) : 1
-    const minAvgPrice = points.length ? Math.min(...points.map((p) => p.avg_price)) : 0
-    const maxAvgPrice = points.length ? Math.max(...points.map((p) => p.avg_price)) : 0
-    const activePriceRanges = PRICE_RANGES.filter(
-        (range) => range.max > minAvgPrice && range.min <= maxAvgPrice
-    )
 
     return (
         <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -102,8 +91,8 @@ export default function GeoMap() {
                                 center={[point.latitude, point.longitude]}
                                 radius={getRadius(point.count, maxCount)}
                                 pathOptions={{
-                                    color: getColor(point.avg_price, activePriceRanges),
-                                    fillColor: getColor(point.avg_price, activePriceRanges),
+                                    color: getColor(point.avg_price),
+                                    fillColor: getColor(point.avg_price),
                                     fillOpacity: 0.75,
                                     weight: 1,
                                 }}
@@ -121,14 +110,14 @@ export default function GeoMap() {
 
                     {/* Legend */}
                     <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-700">
-                        <span className="font-medium text-[#1E1E2C]">Price:</span>
-                        {activePriceRanges.map((range) => (
-                            <span key={`${range.min}-${range.max}`} className="flex items-center gap-1">
+                        <span className="font-medium text-[#1E1E2C]">Avg Price / Night:</span>
+                        {PRICE_RANGES.map((range) => (
+                            <span key={range.label} className="flex items-center gap-1">
                                 <span
                                     className="inline-block h-3 w-3 rounded-full"
                                     style={{ backgroundColor: range.color }}
                                 />
-                                {formatRangeLabel(range)}
+                                {range.label}
                             </span>
                         ))}
                     </div>

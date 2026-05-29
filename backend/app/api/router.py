@@ -104,6 +104,42 @@ def get_prediction_options():
         )
 
 
+@router.get("/host-analytics")
+def get_host_analytics(neighbourhood: str = "all"):
+    try:
+        return analytics_service.get_host_analytics(neighbourhood)
+    except Exception as e:
+        logger.error(f"Error retrieving host analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving host analytics",
+        )
+
+
+@router.get("/property-analytics")
+def get_property_analytics():
+    try:
+        return analytics_service.get_property_analytics()
+    except Exception as e:
+        logger.error(f"Error retrieving property analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving property analytics",
+        )
+
+
+@router.get("/availability-analytics")
+def get_availability_analytics():
+    try:
+        return analytics_service.get_availability_analytics()
+    except Exception as e:
+        logger.error(f"Error retrieving availability analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving availability analytics",
+        )
+
+
 @router.post("/predict")
 async def predict_price(request: PredictionRequest):
     try:
