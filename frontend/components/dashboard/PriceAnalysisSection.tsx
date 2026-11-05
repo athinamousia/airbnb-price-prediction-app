@@ -7,16 +7,16 @@ import { useState } from 'react'
 import type { PriceAnalysis, NeighbourhoodRow } from '@/types/dashboard'
 
 const SELECT_CLS =
-    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1E1E2C] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F29F67]/40'
+    'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1E1E2C] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#F99E69]/40'
 
 function DarkTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null
     return (
-        <div className="rounded-lg bg-[#1E1E2C] px-3 py-2 text-xs text-white shadow-xl">
-            {label && <p className="mb-1 font-medium text-gray-300">{label}</p>}
+        <div className="rounded-lg bg-black px-3 py-2 text-xs text-white shadow-xl">
+            {label && <p className="mb-1 font-medium text-white">{label}</p>}
             {payload.map((p: any) => (
                 p.value != null && (
-                    <p key={p.dataKey ?? p.name} style={{ color: p.color ?? '#F29F67' }}>
+                    <p key={p.dataKey ?? p.name} className="text-white">
                         {p.name}: <strong>{p.dataKey === 'avg_price' ? `$${p.value}` : p.value}</strong>
                     </p>
                 )
@@ -91,7 +91,7 @@ export function NeighbourhoodTable({ rows }: { rows: NeighbourhoodRow[] }) {
             {sorted.length > 10 && (
                 <button
                     onClick={() => setShowAll(s => !s)}
-                    className="mt-3 text-xs font-medium text-[#34B1AA] hover:underline"
+                    className="mt-3 text-xs font-medium text-black hover:underline"
                 >
                     {showAll ? 'Show less' : `Show ${sorted.length - 10} more rows`}
                 </button>
@@ -106,8 +106,11 @@ export default function PriceAnalysisSection(props: {
     loading: boolean
     selected: string
     onChangeNeighbourhood: (v: string) => void
+    roomTypes: string[]
+    selectedRoomType: string
+    onChangeRoomType: (v: string) => void
 }) {
-    const { data, histogramData, loading, selected, onChangeNeighbourhood } = props
+    const { data, histogramData, loading, selected, onChangeNeighbourhood, roomTypes, selectedRoomType, onChangeRoomType } = props
     const median = data?.stats?.median ?? null
 
     // Find which bin contains the median for the reference line
@@ -128,11 +131,18 @@ export default function PriceAnalysisSection(props: {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">
                     Price Analysis
                 </p>
-                <select value={selected} onChange={e => onChangeNeighbourhood(e.target.value)} className={SELECT_CLS}>
-                    {data?.neighbourhoods?.map(n => (
-                        <option key={n} value={n}>{n === 'all' ? 'All Neighbourhoods' : n}</option>
-                    ))}
-                </select>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    <select value={selected} onChange={e => onChangeNeighbourhood(e.target.value)} className={SELECT_CLS}>
+                        {data?.neighbourhoods?.map(n => (
+                            <option key={n} value={n}>{n === 'all' ? 'All Neighbourhoods' : n}</option>
+                        ))}
+                    </select>
+                    <select value={selectedRoomType} onChange={e => onChangeRoomType(e.target.value)} className={SELECT_CLS}>
+                        {roomTypes.map(r => (
+                            <option key={r} value={r}>{r === 'all' ? 'All Room Types' : r}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -157,7 +167,7 @@ export default function PriceAnalysisSection(props: {
                                 tick={{ fontSize: 10, fill: '#374151' }} axisLine={false} tickLine={false}
                             />
                             <Tooltip content={<DarkTooltip />} cursor={{ fill: '#F4F5F7' }} />
-                            <Bar dataKey="avg_price" fill="#F29F67" radius={[0, 4, 4, 0]} name="Avg Price" />
+                            <Bar dataKey="avg_price" fill="#0B1040" radius={[0, 4, 4, 0]} name="Avg Price" opacity={0.8} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -169,7 +179,7 @@ export default function PriceAnalysisSection(props: {
                             Price Distribution
                         </p>
                         {median != null && (
-                            <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-medium text-red-500">
+                            <span className="rounded-full bg-[#F99E69]/15 px-2 py-0.5 text-[10px] font-medium text-[#F99E69]">
                                 Median ${median}
                             </span>
                         )}
@@ -183,16 +193,16 @@ export default function PriceAnalysisSection(props: {
                             />
                             <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                             <Tooltip content={<DarkTooltip />} cursor={{ fill: '#F4F5F7' }} />
-                            <Bar dataKey="count" fill="#3B8FF3" radius={[4, 4, 0, 0]} name="Count" opacity={0.8} />
+                            <Bar dataKey="count" fill="#0B1040" radius={[4, 4, 0, 0]} name="Count" opacity={0.8} />
                             <Line
-                                type="monotone" dataKey="kde" stroke="#F29F67"
+                                type="monotone" dataKey="kde" stroke="#F99E69"
                                 strokeWidth={2.5} dot={false} name="KDE"
                                 connectNulls
                             />
                             {medianBin && (
                                 <ReferenceLine
-                                    x={medianBin} stroke="#E05858" strokeDasharray="4 4" strokeWidth={1.5}
-                                    label={{ value: `Median`, position: 'top', fontSize: 9, fill: '#E05858' }}
+                                    x={medianBin} stroke="#F99E69" strokeDasharray="4 4" strokeWidth={1.5}
+                                    label={{ value: `Median`, position: 'top', fontSize: 9, fill: '#F99E69' }}
                                 />
                             )}
                         </ComposedChart>

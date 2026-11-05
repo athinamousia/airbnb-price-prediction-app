@@ -1,10 +1,12 @@
 import FeatureCard from '@/components/sections/FeatureCard'
-import { BoltIcon, BuildingOffice2Icon, CalendarDaysIcon, CurrencyDollarIcon, StarIcon, UserGroupIcon, UsersIcon } from '@heroicons/react/24/outline'
+import { BoltIcon, BuildingOffice2Icon, CalendarDaysIcon, CurrencyDollarIcon, UserGroupIcon, UsersIcon } from '@heroicons/react/24/outline'
 import type { KpiResponse } from '@/types/dashboard'
 
-const KPI_ACCENTS = ['#F29F67', '#3B8FF3', '#34B1AA', '#E0B50F', '#A78BFA', '#F87171', '#6EE7B7']
+const KPI_ACCENTS = Array(7).fill('#1E1E2C')
 
-export default function KpiSection({ kpis, loading }: { kpis: KpiResponse | null; loading: boolean }) {
+export default function KpiSection({ kpis, loading }: {
+    kpis: KpiResponse | null; loading: boolean
+}) {
     return (
         <section className="space-y-6">
             {/* Dashboard description */}
@@ -20,10 +22,11 @@ export default function KpiSection({ kpis, loading }: { kpis: KpiResponse | null
 
             {/* Key metrics */}
             <div>
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Key Metrics</p>
+                <div className="mb-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Key Metrics</p>
+                </div>
 
-                {/* Row 1: Total Listings + Total Hosts — 2 equal columns */}
-                <div className="mb-4 grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <FeatureCard
                         title="Total Listings"
                         description={loading ? '—' : `${kpis?.total_listings?.toLocaleString() ?? 0}`}
@@ -36,10 +39,6 @@ export default function KpiSection({ kpis, loading }: { kpis: KpiResponse | null
                         icon={<UsersIcon className="h-6 w-6" />}
                         accent={KPI_ACCENTS[6]}
                     />
-                </div>
-
-                {/* Row 2: Superhosts + Instant Bookable — 2 equal columns */}
-                <div className="mb-4 grid grid-cols-2 gap-4">
                     <FeatureCard
                         title="Superhosts"
                         description={loading ? '—' : `${kpis?.superhost_percentage ?? 0}%`}
@@ -52,21 +51,11 @@ export default function KpiSection({ kpis, loading }: { kpis: KpiResponse | null
                         icon={<BoltIcon className="h-6 w-6" />}
                         accent={KPI_ACCENTS[4]}
                     />
-                </div>
-
-                {/* Row 3: Avg Price + Avg Occupancy Rate + Avg Min Nights — 3 equal columns */}
-                <div className="grid grid-cols-3 gap-4">
                     <FeatureCard
                         title="Avg Price / Night"
                         description={loading ? '—' : `$${kpis?.avg_price_per_night ?? 0}`}
                         icon={<CurrencyDollarIcon className="h-6 w-6" />}
                         accent={KPI_ACCENTS[1]}
-                    />
-                    <FeatureCard
-                        title="Avg Occupancy Rate"
-                        description={loading ? '—' : `${kpis?.avg_occupancy_rate ?? 'N/A'}%`}
-                        icon={<StarIcon className="h-6 w-6" />}
-                        accent={KPI_ACCENTS[2]}
                     />
                     <FeatureCard
                         title="Avg Min Nights"

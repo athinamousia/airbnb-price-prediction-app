@@ -11,10 +11,10 @@ import type { AvailabilityAnalytics } from '@/types/dashboard'
 function DarkTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null
     return (
-        <div className="rounded-lg bg-[#1E1E2C] px-3 py-2 text-xs text-white shadow-xl">
-            {label && <p className="mb-1 font-medium text-gray-300">{label}</p>}
+        <div className="rounded-lg bg-black px-3 py-2 text-xs text-white shadow-xl">
+            {label && <p className="mb-1 font-medium text-white">{label}</p>}
             {payload.map((p: any) => (
-                <p key={p.dataKey ?? p.name} style={{ color: p.fill ?? p.color ?? '#3B8FF3' }}>
+                <p key={p.dataKey ?? p.name} className="text-white">
                     {p.name}: <strong>{p.value}</strong>
                 </p>
             ))}
@@ -23,10 +23,10 @@ function DarkTooltip({ active, payload, label }: any) {
 }
 
 const WINDOW_COLORS = {
-    availability_30: '#3B8FF3',
-    availability_60: '#F29F67',
-    availability_90: '#34B1AA',
-    availability_365: '#A78BFA',
+    availability_30: '#273272',
+    availability_60: '#F16122',
+    availability_90: '#F16122',
+    availability_365: '#F3CB52',
 }
 
 export default function AvailabilitySection({ data, loading, instantBookablePct }: { data: AvailabilityAnalytics | null; loading: boolean; instantBookablePct?: number }) {
@@ -34,7 +34,7 @@ export default function AvailabilitySection({ data, loading, instantBookablePct 
         { name: 'Instant Book', value: instantBookablePct ?? 0 },
         { name: 'Request to Book', value: parseFloat((100 - (instantBookablePct ?? 0)).toFixed(1)) },
     ]
-    const INSTANT_COLORS = ['#34B1AA', '#E5E7EB']
+    const INSTANT_COLORS = ['#F16122', '#E5E7EB']
 
     const funnelData = (data?.avg_availability ?? []).map(w => ({
         window: w.window,
@@ -91,8 +91,8 @@ export default function AvailabilitySection({ data, loading, instantBookablePct 
                             <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                             <Tooltip content={<DarkTooltip />} cursor={{ fill: '#F4F5F7' }} />
                             <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Bar dataKey="Avg Available Days" stackId="a" fill="#3B8FF3" radius={[0, 0, 0, 0]} />
-                            <Bar dataKey="Avg Occupied Days" stackId="a" fill="#F29F67" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="Avg Available Days" stackId="a" fill="#273272" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="Avg Occupied Days" stackId="a" fill="#F16122" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -114,10 +114,10 @@ export default function AvailabilitySection({ data, loading, instantBookablePct 
                             <YAxis type="category" dataKey="neighbourhood" width={95}
                                 tick={{ fontSize: 10, fill: '#374151' }} axisLine={false} tickLine={false} />
                             <Tooltip
-                                contentStyle={{ background: '#1E1E2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                                contentStyle={{ background: '#000', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
                                 formatter={(v: any) => [`${v}%`, 'Occupancy']}
                             />
-                            <Bar dataKey="occupancy_pct" fill="#34B1AA" radius={[0, 4, 4, 0]} name="Occupancy %" />
+                            <Bar dataKey="occupancy_pct" fill="#F16122" radius={[0, 4, 4, 0]} name="Occupancy %" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -141,10 +141,10 @@ export default function AvailabilitySection({ data, loading, instantBookablePct 
                             <ZAxis range={[18, 18]} />
                             <Tooltip
                                 cursor={{ strokeDasharray: '3 3' }}
-                                contentStyle={{ background: '#1E1E2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                                contentStyle={{ background: '#000', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
                                 formatter={(v: any, name: string) => name === 'Price' ? [`$${v}`, name] : [v, name]}
                             />
-                            <Scatter name="Listing" data={data?.price_vs_availability ?? []} fill="#3B8FF3" opacity={0.45} />
+                            <Scatter name="Listing" data={data?.price_vs_availability ?? []} fill="#273272" opacity={0.45} />
                         </ScatterChart>
                     </ResponsiveContainer>
                 </div>
@@ -195,10 +195,10 @@ export function OccupancyByNeighbourhoodChart({ data }: { data: { neighbourhood:
                     <YAxis type="category" dataKey="neighbourhood" width={95}
                         tick={{ fontSize: 10, fill: '#374151' }} axisLine={false} tickLine={false} />
                     <Tooltip
-                        contentStyle={{ background: '#1E1E2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                        contentStyle={{ background: '#000', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
                         formatter={(v: any) => [`${v}%`, 'Occupancy']}
                     />
-                    <Bar dataKey="occupancy_pct" fill="#3B8FF3" radius={[0, 4, 4, 0]} name="Occupancy %" />
+                    <Bar dataKey="occupancy_pct" fill="#F99E69" radius={[0, 4, 4, 0]} name="Occupancy %" />
                 </BarChart>
             </ResponsiveContainer>
         </div>

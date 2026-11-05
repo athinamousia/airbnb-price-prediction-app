@@ -22,6 +22,7 @@ export function useDashboardData() {
     const [selectedRoomType, setSelectedRoomType] = useState('all')
     const [selectedHostNeighbourhood, setSelectedHostNeighbourhood] = useState('all')
     const [selectedHostRoomType, setSelectedHostRoomType] = useState('all')
+    const [selectedPriceRoomType, setSelectedPriceRoomType] = useState('all')
 
     const [loadingKpis, setLoadingKpis] = useState(true)
     const [loadingPrice, setLoadingPrice] = useState(true)
@@ -32,22 +33,32 @@ export function useDashboardData() {
     const [loadingAvailability, setLoadingAvailability] = useState(true)
 
     useEffect(() => {
-        fetch(`${API_BASE}/kpis`).then(r => r.json()).then(setKpis).finally(() => setLoadingKpis(false))
-        fetch(`${API_BASE}/property-analytics`).then(r => r.json()).then(setPropertyAnalytics).finally(() => setLoadingPropertyAnalytics(false))
-        fetch(`${API_BASE}/availability-analytics`).then(r => r.json()).then(setAvailabilityAnalytics).finally(() => setLoadingAvailability(false))
+        setLoadingKpis(true)
+        fetch(`${API_BASE}/kpis`)
+            .then(r => r.json()).then(setKpis).finally(() => setLoadingKpis(false))
     }, [])
 
     useEffect(() => {
+        const qs = `neighbourhood=${encodeURIComponent(selectedPropertyNeighbourhood)}&room_type=${encodeURIComponent(selectedRoomType)}`
+        setLoadingPropertyAnalytics(true)
+        fetch(`${API_BASE}/property-analytics?${qs}`)
+            .then(r => r.json()).then(setPropertyAnalytics).finally(() => setLoadingPropertyAnalytics(false))
+        setLoadingAvailability(true)
+        fetch(`${API_BASE}/availability-analytics?${qs}`)
+            .then(r => r.json()).then(setAvailabilityAnalytics).finally(() => setLoadingAvailability(false))
+    }, [selectedPropertyNeighbourhood, selectedRoomType])
+
+    useEffect(() => {
         setLoadingHostAnalytics(true)
-        fetch(`${API_BASE}/host-analytics?neighbourhood=${encodeURIComponent(selectedHostNeighbourhood)}`)
+        fetch(`${API_BASE}/host-analytics?neighbourhood=${encodeURIComponent(selectedHostNeighbourhood)}&room_type=${encodeURIComponent(selectedHostRoomType)}`)
             .then(r => r.json()).then(setHostAnalytics).finally(() => setLoadingHostAnalytics(false))
-    }, [selectedHostNeighbourhood])
+    }, [selectedHostNeighbourhood, selectedHostRoomType])
 
     useEffect(() => {
         setLoadingPrice(true)
-        fetch(`${API_BASE}/price-analysis?neighbourhood=${encodeURIComponent(selectedNeighbourhood)}`)
+        fetch(`${API_BASE}/price-analysis?neighbourhood=${encodeURIComponent(selectedNeighbourhood)}&room_type=${encodeURIComponent(selectedPriceRoomType)}`)
             .then(r => r.json()).then(setPriceAnalysis).finally(() => setLoadingPrice(false))
-    }, [selectedNeighbourhood])
+    }, [selectedNeighbourhood, selectedPriceRoomType])
 
     useEffect(() => {
         setLoadingPropertyType(true)
@@ -79,6 +90,7 @@ export function useDashboardData() {
         selectedRoomType, setSelectedRoomType,
         selectedHostNeighbourhood, setSelectedHostNeighbourhood,
         selectedHostRoomType, setSelectedHostRoomType,
+        selectedPriceRoomType, setSelectedPriceRoomType,
         loadingKpis, loadingPrice, loadingPropertyType, loadingHostInsights,
         loadingHostAnalytics, loadingPropertyAnalytics, loadingAvailability,
         histogramData,

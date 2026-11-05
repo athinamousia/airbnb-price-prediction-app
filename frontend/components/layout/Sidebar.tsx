@@ -14,13 +14,13 @@ interface SidebarItemProps {
 
 function SidebarItem({ href, icon, label }: SidebarItemProps) {
     const pathname = usePathname()
-    const isActive = pathname === href
+    const isActive = pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
 
     return (
         <Link
             href={href}
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all border-l-2 ${isActive
-                    ? 'border-[#F29F67] bg-[#F29F67]/10 text-[#F29F67]'
+                    ? 'border-[#F99E69] bg-[#F99E69]/10 text-[#F99E69]'
                     : 'border-transparent text-gray-500 hover:bg-gray-50 hover:text-[#1E1E2C]'
                 }`}
         >
@@ -36,7 +36,7 @@ export default function Sidebar() {
             {/* Brand */}
             <div className="mb-8 px-2 pt-2">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F29F67]">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F99E69]">
                         <span className="text-sm font-extrabold text-white">A</span>
                     </div>
                     <div>

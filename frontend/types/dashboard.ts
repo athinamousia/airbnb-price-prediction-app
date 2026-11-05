@@ -65,7 +65,7 @@ export interface PredictionOptionColumn {
     display_name: string
     description: string
     type: 'string' | 'number'
-    input_kind: 'select' | 'number' | 'multi_select'
+    input_kind: 'select' | 'number' | 'multi_select' | 'slider'
     option_count: number
     options: Array<string | number>
     default?: string | number | string[]
@@ -76,6 +76,38 @@ export interface PredictionOptionColumn {
 
 export interface PredictionOptionsResponse {
     columns: PredictionOptionColumn[]
+}
+
+export interface ModelMetrics {
+    rmse_price: number
+    mae_price: number
+    r2_price: number
+}
+
+export interface ModelComparisonItem {
+    name: string
+    is_best: boolean
+    validation: ModelMetrics
+    test: ModelMetrics
+}
+
+export interface ShapFeature {
+    feature: string
+    mean_abs_shap: number
+    mean_shap: number
+    value_shap_corr: number
+}
+
+export interface ModelPerformance {
+    best_model: string
+    final_model_trained_on: string | null
+    models: ModelComparisonItem[]
+    shap: {
+        available: boolean
+        n_rows?: number
+        base_value_log_price?: number
+        features: ShapFeature[]
+    }
 }
 
 
@@ -104,8 +136,8 @@ export interface HostAnalytics {
     price_by_response_rate: BoxPlotItem[]
     correlations: CorrelationItem[]
     avg_price_by_response_time: AvgPriceItem[]
-    host_tenure_vs_price: BoxPlotItem[]
-    portfolio_size_vs_price: BoxPlotItem[]
+    host_verification_methods: { method: string; count: number; pct: number }[]
+    host_listings_vs_price: { listings_count: number; avg_price: number; count: number }[]
     instant_bookable_vs_price: BoxPlotItem[]
 }
 

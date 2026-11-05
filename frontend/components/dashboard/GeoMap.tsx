@@ -15,11 +15,9 @@ import 'leaflet/dist/leaflet.css'
 type PriceRange = { min: number; max: number; color: string; label: string }
 
 const PRICE_RANGES: PriceRange[] = [
-    { min: 0, max: 50, color: '#34B1AA', label: '< $40' },
-    { min: 40, max: 60, color: '#84CC16', label: '$40–60' },
-    { min: 60, max: 80, color: '#E0B50F', label: '$60–80' },
-    { min: 80, max: 100, color: '#F29F67', label: '$80–100' },
-    { min: 100, max: Number.POSITIVE_INFINITY, color: '#E05858', label: '> $100' },
+    { min: 0, max: 60, color: '#FFC861', label: '< $60' },
+    { min: 60, max: 100, color: '#F99E69', label: '$60–100' },
+    { min: 100, max: Number.POSITIVE_INFINITY, color: '#0B1040', label: '> $100' },
 ]
 
 function getColor(price: number): string {
@@ -109,17 +107,17 @@ export default function GeoMap() {
                     </MapContainer>
 
                     {/* Legend */}
-                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-700">
-                        <span className="font-medium text-[#1E1E2C]">Avg Price / Night:</span>
-                        {PRICE_RANGES.map((range) => (
-                            <span key={range.label} className="flex items-center gap-1">
-                                <span
-                                    className="inline-block h-3 w-3 rounded-full"
-                                    style={{ backgroundColor: range.color }}
-                                />
-                                {range.label}
-                            </span>
-                        ))}
+                    <div className="mt-3 space-y-2 text-xs text-gray-700">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span className="font-medium">Avg price / night:</span>
+                            {PRICE_RANGES.map(r => (
+                                <span key={r.label} className="flex items-center gap-1.5">
+                                    <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: r.color }} />
+                                    {r.label}
+                                </span>
+                            ))}
+                        </div>
+                        <p>Marker size = number of listings; hover for avg price / night</p>
                     </div>
                 </>
             )}

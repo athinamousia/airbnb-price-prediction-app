@@ -15,7 +15,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
             <div className="flex flex-1 flex-col">
                 <Navbar />
                 <main className="flex-1 overflow-auto p-8">
-                    {children}
+                    <div className="mx-auto w-full max-w-[1400px]">{children}</div>
                 </main>
             </div>
         </div>
