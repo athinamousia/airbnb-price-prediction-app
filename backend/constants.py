@@ -29,7 +29,6 @@ cols_to_drop = [
     "number_of_reviews_l30d",
     # "host_listings_count",
     "calculated_host_listings_count",
-    "host_identity_verified",
     "calculated_host_listings_count_private_rooms",
     "calculated_host_listings_count_shared_rooms",
     "reviews_per_month",

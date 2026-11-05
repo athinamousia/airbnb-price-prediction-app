@@ -1,0 +1,98 @@
+{
+  "best_model": "stacking",
+  "validation": {
+    "ridge": {
+      "rmse_price": 25.870491310276982,
+      "mae_price": 17.693268929984242,
+      "r2_price": 0.35312084658394005
+    },
+    "elasticnet": {
+      "rmse_price": 25.857459538146653,
+      "mae_price": 17.69732318706671,
+      "r2_price": 0.3537723887908458
+    },
+    "random_forest": {
+      "rmse_price": 22.696101979209054,
+      "mae_price": 15.288692204183425,
+      "r2_price": 0.5021295494855864
+    },
+    "extra_trees": {
+      "rmse_price": 23.01876404836776,
+      "mae_price": 15.810155703881145,
+      "r2_price": 0.48787284431710587
+    },
+    "gradient_boosting": {
+      "rmse_price": 22.055060762566832,
+      "mae_price": 15.144328092696627,
+      "r2_price": 0.5298566259643639
+    },
+    "hist_gradient_boosting": {
+      "rmse_price": 22.178169233337535,
+      "mae_price": 15.329210238732344,
+      "r2_price": 0.5245934196708173
+    },
+    "xgboost": {
+      "rmse_price": 21.907827117282462,
+      "mae_price": 15.09823284619961,
+      "r2_price": 0.5361127749172185
+    },
+    "stacking": {
+      "rmse_price": 21.70468440115653,
+      "mae_price": 14.907879097777947,
+      "r2_price": 0.5446757790690007
+    }
+  },
+  "test": {
+    "ridge": {
+      "rmse_price": 25.805213002518844,
+      "mae_price": 17.508079296543443,
+      "r2_price": 0.358938296293983
+    },
+    "elasticnet": {
+      "rmse_price": 25.803612409338562,
+      "mae_price": 17.509561586853113,
+      "r2_price": 0.35901781876637806
+    },
+    "random_forest": {
+      "rmse_price": 22.95258115077293,
+      "mae_price": 15.250319565653019,
+      "r2_price": 0.49283648853661866
+    },
+    "extra_trees": {
+      "rmse_price": 23.19541265637236,
+      "mae_price": 15.581353391406008,
+      "r2_price": 0.4820484423961333
+    },
+    "gradient_boosting": {
+      "rmse_price": 21.765818446531913,
+      "mae_price": 14.593556849436986,
+      "r2_price": 0.5439263916346933
+    },
+    "hist_gradient_boosting": {
+      "rmse_price": 22.170993649512504,
+      "mae_price": 14.872078481947742,
+      "r2_price": 0.5267885416005167
+    },
+    "xgboost": {
+      "rmse_price": 22.145263339526878,
+      "mae_price": 14.831451188407097,
+      "r2_price": 0.5278862652671603
+    },
+    "stacking": {
+      "rmse_price": 21.699679387000497,
+      "mae_price": 14.468020596913368,
+      "r2_price": 0.5466938915123716
+    }
+  },
+  "selected_validation_metrics": {
+    "rmse_price": 21.70468440115653,
+    "mae_price": 14.907879097777947,
+    "r2_price": 0.5446757790690007
+  },
+  "selected_test_metrics": {
+    "rmse_price": 21.699679387000497,
+    "mae_price": 14.468020596913368,
+    "r2_price": 0.5466938915123716
+  },
+  "final_model_trained_on": "all data (train + test)"
+}

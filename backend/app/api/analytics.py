@@ -54,6 +54,8 @@ class AnalyticsService:
         "accommodates_per_bed",
         "beds_per_bedroom",
         "bath_per_guest",
+        "bathrooms_text",
+        "bathrooms",
         "minimum_to_maximum_nights_ratio",
         # Area-level features merged from the review pipeline
         "avg_sentiment_score",
@@ -110,6 +112,12 @@ class AnalyticsService:
                 self._build_prediction_source()
                 return
             self._df = pd.read_csv(listings_path)
+            self._df = self._df.loc[:, ~self._df.columns.str.startswith("Unnamed")]
+            if (
+                "neighbourhood_cleansed" not in self._df.columns
+                and "neighbourhood" in self._df.columns
+            ):
+                self._df["neighbourhood_cleansed"] = self._df["neighbourhood"]
             # Translate Greek neighbourhood names to English (same mapping used in preprocessing)
             if "neighbourhood_cleansed" in self._df.columns:
                 self._df["neighbourhood_cleansed"] = self._df[
@@ -234,9 +242,9 @@ class AnalyticsService:
     @staticmethod
     def _normalize_boolean_label(value: Any) -> str | None:
         normalized = str(value).strip().lower()
-        if normalized in {"t", "true", "1", "yes", "y"}:
+        if normalized in {"t", "true", "1", "1.0", "yes", "y"}:
             return "Yes"
-        if normalized in {"f", "false", "0", "no", "n"}:
+        if normalized in {"f", "false", "0", "0.0", "no", "n"}:
             return "No"
         return None
 
@@ -259,7 +267,7 @@ class AnalyticsService:
         }
 
     def get_prediction_options(self) -> Dict[str, Any]:
-        cache_key = "prediction_options_v5"
+        cache_key = "prediction_options_v13"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -280,24 +288,8 @@ class AnalyticsService:
             if col in dropped_columns or col == "price" or col in self.DERIVED_COLUMNS:
                 continue
 
-            # Consolidate all availability_X columns into a single multi-select field.
+            # Availability windows are added as sliders after the loop.
             if col in self.AVAILABILITY_COLUMNS:
-                if not availability_added:
-                    availability_added = True
-                    columns.append(
-                        {
-                            "name": "availability_windows",
-                            "display_name": self._to_display_name(
-                                "availability_windows"
-                            ),
-                            "description": "Select which booking windows the listing is available in.",
-                            "type": "string",
-                            "input_kind": "multi_select",
-                            "option_count": len(self.AVAILABILITY_WINDOWS),
-                            "options": self.AVAILABILITY_WINDOWS,
-                            "default": [],
-                        }
-                    )
                 continue
 
             series = raw_series.dropna()
@@ -320,7 +312,7 @@ class AnalyticsService:
                             self._prediction_preprocessor, "amenity_cols_", []
                         )
                     if not amenity_cols:
-                        # Fallback: compute top-20 from raw series
+                        # Fallback: compute top-25 from raw series
                         token_counts: Counter = Counter()
                         for value in series:
                             tokens = [
@@ -329,7 +321,7 @@ class AnalyticsService:
                                 if t.strip()
                             ]
                             token_counts.update(set(tokens))
-                        amenity_cols = [tok for tok, _ in token_counts.most_common(20)]
+                        amenity_cols = [tok for tok, _ in token_counts.most_common(25)]
                     if not amenity_cols:
                         continue
                     options = sorted(amenity_cols)
@@ -428,7 +420,10 @@ class AnalyticsService:
                     if label is not None
                 }
             )
-            if len(bool_labels) >= 2:
+            all_boolean = all(
+                self._normalize_boolean_label(value) is not None for value in series
+            )
+            if len(bool_labels) >= 2 and all_boolean:
                 columns.append(
                     {
                         "name": col,
@@ -503,6 +498,24 @@ class AnalyticsService:
                 }
             )
 
+        # Availability windows are exposed as range sliders (0..N days), including
+        # windows the preprocessor later drops as highly correlated.
+        for window_days in (30, 60, 90, 365):
+            columns.append(
+                {
+                    "name": f"availability_{window_days}",
+                    "display_name": f"{window_days} Days Availability",
+                    "description": f"Number of days the listing is available in the next {window_days} days.",
+                    "type": "number",
+                    "input_kind": "slider",
+                    "option_count": 0,
+                    "options": [],
+                    "min": 0,
+                    "max": window_days,
+                    "step": 1,
+                }
+            )
+
         result = {"columns": columns}
         cache.set(cache_key, result)
         return result
@@ -520,8 +533,8 @@ class AnalyticsService:
           other boolean-looking columns (e.g. bath_is_shared).
         - List values (amenities, host_verifications) → stringified list representation.
         """
-        backend_root = Path(__file__).resolve().parents[2]
-        bundle_path = backend_root / "models" / "artifacts" / "price_model.joblib"
+        project_root = Path(__file__).resolve().parents[3]
+        bundle_path = project_root / "output" / "models" / "price_model.joblib"
         if not bundle_path.exists():
             raise FileNotFoundError(
                 f"Model artifact not found at {bundle_path}. "
@@ -561,13 +574,23 @@ class AnalyticsService:
         predicted_price = float(bundle.predict(df)[0])
         return {"predicted_price": round(predicted_price, 2)}
 
-    def get_kpis(self) -> Dict[str, Any]:
-        cache_key = "kpis"
+    def _filter_df(self, df, neighbourhood="all", room_type="all"):
+        if df is None:
+            return df
+        if neighbourhood and neighbourhood != "all" and "neighbourhood_cleansed" in df.columns:
+            df = df[df["neighbourhood_cleansed"] == neighbourhood]
+        if room_type and room_type != "all" and "room_type" in df.columns:
+            df = df[df["room_type"].astype(str) == room_type]
+        return df
+
+    def get_kpis(self, room_type: str = "all") -> Dict[str, Any]:
+        cache_key = f"kpis_{room_type}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
-        if self._df is None:
+        base = self._filter_df(self._df, "all", room_type)
+        if base is None:
             return {
                 "total_listings": 0,
                 "avg_price_per_night": 0.0,
@@ -576,14 +599,14 @@ class AnalyticsService:
                 "superhost_percentage": 0.0,
             }
 
-        total_listings = int(len(self._df))
+        total_listings = int(len(base))
 
-        prices = self._price_series()
+        prices = self._price_series(base)
         avg_price = float(prices.mean()) if not prices.empty else 0.0
 
-        if "availability_365" in self._df.columns:
+        if "availability_365" in base.columns:
             availability = pd.to_numeric(
-                self._df["availability_365"], errors="coerce"
+                base["availability_365"], errors="coerce"
             ).clip(lower=0, upper=365)
             occupancy_rate = float(((365 - availability).mean() / 365) * 100)
         else:
@@ -597,17 +620,17 @@ class AnalyticsService:
             "review_scores_location",
         ]
         selected_col = next(
-            (c for c in review_candidates if c in self._df.columns), None
+            (c for c in review_candidates if c in base.columns), None
         )
         if selected_col:
-            rating = pd.to_numeric(self._df[selected_col], errors="coerce")
+            rating = pd.to_numeric(base[selected_col], errors="coerce")
             mean_rating = float(rating.mean()) if not rating.empty else 0.0
             avg_review_score = mean_rating / 20 if mean_rating > 5 else mean_rating
 
         superhost_percentage = 0.0
-        if "host_is_superhost" in self._df.columns:
+        if "host_is_superhost" in base.columns:
             superhost = (
-                self._df["host_is_superhost"]
+                base["host_is_superhost"]
                 .astype(str)
                 .str.lower()
                 .isin(["t", "true", "1", "yes"])
@@ -615,9 +638,9 @@ class AnalyticsService:
             superhost_percentage = float(superhost.mean() * 100)
 
         instant_bookable_pct = 0.0
-        if "instant_bookable" in self._df.columns:
+        if "instant_bookable" in base.columns:
             ib = (
-                self._df["instant_bookable"]
+                base["instant_bookable"]
                 .astype(str)
                 .str.lower()
                 .isin(["t", "true", "1", "yes"])
@@ -625,13 +648,13 @@ class AnalyticsService:
             instant_bookable_pct = round(float(ib.mean() * 100), 2)
 
         avg_min_nights = 0.0
-        if "minimum_nights" in self._df.columns:
-            mn = pd.to_numeric(self._df["minimum_nights"], errors="coerce").clip(1, 90)
+        if "minimum_nights" in base.columns:
+            mn = pd.to_numeric(base["minimum_nights"], errors="coerce").clip(1, 90)
             avg_min_nights = round(float(mn.mean()), 1) if not mn.empty else 0.0
 
         total_hosts = 0
-        if "host_id" in self._df.columns:
-            total_hosts = int(self._df["host_id"].nunique())
+        if "host_id" in base.columns:
+            total_hosts = int(base["host_id"].nunique())
 
         result = {
             "total_listings": total_listings,
@@ -648,13 +671,14 @@ class AnalyticsService:
         cache.set(cache_key, result)
         return result
 
-    def get_price_analysis(self, neighbourhood: str = None) -> Dict[str, Any]:
-        cache_key = f"price_analysis_{neighbourhood or 'all'}"
+    def get_price_analysis(self, neighbourhood: str = None, room_type: str = "all") -> Dict[str, Any]:
+        cache_key = f"price_analysis_{neighbourhood or 'all'}_{room_type}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
-        if self._df is None:
+        base = self._filter_df(self._df, "all", room_type)
+        if base is None:
             return {
                 "histogram": {"labels": [], "counts": []},
                 "neighbourhoods": [],
@@ -665,11 +689,11 @@ class AnalyticsService:
 
         # all neighbourhoods for dropdown
         neighbourhoods = sorted(
-            self._df["neighbourhood_cleansed"].dropna().unique().tolist()
+            base["neighbourhood_cleansed"].dropna().unique().tolist()
         )
 
         # filter df if neighbourhood selected
-        df = self._df.copy()
+        df = base.copy()
         if neighbourhood and neighbourhood != "all":
             df = df[df["neighbourhood_cleansed"] == neighbourhood]
 
@@ -722,9 +746,9 @@ class AnalyticsService:
             stats = {"min": 0, "max": 0, "median": 0, "mean": 0}
 
         # avg price by neighbourhood top 15
-        all_prices = self._price_series(self._df)
+        all_prices = self._price_series(base)
         avg_by_nb = (
-            self._df.assign(price_clean=all_prices)
+            base.assign(price_clean=all_prices)
             .groupby("neighbourhood_cleansed")["price_clean"]
             .mean()
             .dropna()
@@ -734,8 +758,8 @@ class AnalyticsService:
 
         # Neighbourhood comparison table (always over full dataset)
         nb_comparison: List = []
-        if "neighbourhood_cleansed" in self._df.columns:
-            nb_df = self._df.copy()
+        if "neighbourhood_cleansed" in base.columns:
+            nb_df = base.copy()
             nb_df["_price"] = self._price_series(nb_df)
             nb_df["_sh"] = (
                 nb_df["host_is_superhost"]
@@ -896,8 +920,8 @@ class AnalyticsService:
         cache.set(cache_key, result)
         return result
 
-    def get_host_analytics(self, neighbourhood: str = "all") -> Dict[str, Any]:
-        cache_key = f"host_analytics_v3_{neighbourhood}"
+    def get_host_analytics(self, neighbourhood: str = "all", room_type: str = "all") -> Dict[str, Any]:
+        cache_key = f"host_analytics_v7_{neighbourhood}_{room_type}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -907,14 +931,14 @@ class AnalyticsService:
             "price_by_response_rate": [],
             "correlations": [],
             "avg_price_by_response_time": [],
-            "host_tenure_vs_price": [],
-            "portfolio_size_vs_price": [],
+            "host_verification_methods": [],
+            "host_listings_vs_price": [],
             "instant_bookable_vs_price": [],
         }
         if self._df is None:
             return empty
 
-        df = self._df.copy()
+        df = self._filter_df(self._df, neighbourhood, room_type).copy()
         df["_price"] = self._price_series(df)
         df = df[df["_price"].notna() & (df["_price"] > 0)]
         if df.empty:
@@ -1016,55 +1040,45 @@ class AnalyticsService:
                         }
                     )
 
-        # Host tenure vs price
-        host_tenure_vs_price: List = []
-        if "host_since" in df.columns:
-            df["_host_since"] = pd.to_datetime(df["host_since"], errors="coerce")
-            now = pd.Timestamp.now()
-            df["_years"] = ((now - df["_host_since"]).dt.days / 365).round(0)
-            tenure_order = ["< 1 year", "1–3 years", "3–5 years", "5+ years"]
+        # Host verification methods (share of listings, top 8)
+        host_verification_methods: List = []
+        if "host_verifications" in df.columns:
+            def _parse_verifications(v):
+                if isinstance(v, (list, tuple, set)):
+                    return [str(i).strip() for i in v if str(i).strip()]
+                if not isinstance(v, str) or not v.strip().startswith("["):
+                    return []
+                items = [i.strip(" '\"") for i in v.strip().strip("[]").split(",")]
+                return [i for i in items if i]
 
-            def _tenure_bucket(v):
-                if pd.isna(v):
-                    return None
-                v = float(v)
-                if v < 1:
-                    return "< 1 year"
-                if v <= 3:
-                    return "1–3 years"
-                if v <= 5:
-                    return "3–5 years"
-                return "5+ years"
+            parsed = df["host_verifications"].apply(_parse_verifications)
+            total = int((parsed.str.len() > 0).sum())
+            if total > 0:
+                method_counts = parsed.explode().dropna().value_counts().head(8)
+                for method, n in method_counts.items():
+                    host_verification_methods.append(
+                        {
+                            "method": str(method).replace("_", " ").title(),
+                            "count": int(n),
+                            "pct": round(float(n) / total * 100, 1),
+                        }
+                    )
 
-            df["_tenure"] = df["_years"].apply(_tenure_bucket)
-            for label in tenure_order:
-                bp = self._boxplot_stats(df.loc[df["_tenure"] == label, "_price"])
-                if bp:
-                    host_tenure_vs_price.append({"category": label, **bp})
-
-        # Portfolio size vs price
-        portfolio_size_vs_price: List = []
-        if "calculated_host_listings_count" in df.columns:
-            cnt = pd.to_numeric(df["calculated_host_listings_count"], errors="coerce")
-            portfolio_order = ["1 listing", "2–5", "6–10", "10+"]
-
-            def _portfolio_bucket(v):
-                if pd.isna(v):
-                    return None
-                v = int(v)
-                if v <= 1:
-                    return "1 listing"
-                if v <= 5:
-                    return "2–5"
-                if v <= 10:
-                    return "6–10"
-                return "10+"
-
-            df["_portfolio"] = cnt.apply(_portfolio_bucket)
-            for label in portfolio_order:
-                bp = self._boxplot_stats(df.loc[df["_portfolio"] == label, "_price"])
-                if bp:
-                    portfolio_size_vs_price.append({"category": label, **bp})
+        # Host listings count vs price (continuous, avg price per listings count)
+        host_listings_vs_price: List = []
+        if "host_listings_count" in df.columns:
+            cnt = pd.to_numeric(df["host_listings_count"], errors="coerce")
+            valid = cnt.notna() & (cnt <= 100)
+            grouped = df.loc[valid].groupby(cnt[valid].astype(int))["_price"]
+            stats = grouped.agg(["mean", "count"])
+            for n, row in stats[stats["count"] >= 5].sort_index().iterrows():
+                host_listings_vs_price.append(
+                    {
+                        "listings_count": int(n),
+                        "avg_price": round(float(row["mean"]), 2),
+                        "count": int(row["count"]),
+                    }
+                )
 
         # Instant bookable vs price
         instant_bookable_vs_price: List = []
@@ -1093,15 +1107,15 @@ class AnalyticsService:
                 correlations, key=lambda x: abs(x["correlation"]), reverse=True
             ),
             "avg_price_by_response_time": avg_price_by_response_time,
-            "host_tenure_vs_price": host_tenure_vs_price,
-            "portfolio_size_vs_price": portfolio_size_vs_price,
+            "host_verification_methods": host_verification_methods,
+            "host_listings_vs_price": host_listings_vs_price,
             "instant_bookable_vs_price": instant_bookable_vs_price,
         }
         cache.set(cache_key, result)
         return result
 
-    def get_property_analytics(self) -> Dict[str, Any]:
-        cache_key = "property_analytics_v6"
+    def get_property_analytics(self, neighbourhood: str = "all", room_type: str = "all") -> Dict[str, Any]:
+        cache_key = f"property_analytics_v7_{neighbourhood}_{room_type}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -1116,7 +1130,7 @@ class AnalyticsService:
         if self._df is None:
             return empty
 
-        df = self._df.copy()
+        df = self._filter_df(self._df, neighbourhood, room_type).copy()
         df["_price"] = self._price_series(df)
         df = df[df["_price"].notna() & (df["_price"] > 0)]
         if df.empty:
@@ -1453,8 +1467,8 @@ class AnalyticsService:
         cache.set(cache_key, result)
         return result
 
-    def get_availability_analytics(self) -> Dict[str, Any]:
-        cache_key = "availability_analytics_v1"
+    def get_availability_analytics(self, neighbourhood: str = "all", room_type: str = "all") -> Dict[str, Any]:
+        cache_key = f"availability_analytics_v2_{neighbourhood}_{room_type}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -1468,7 +1482,7 @@ class AnalyticsService:
         if self._df is None:
             return empty
 
-        df = self._df.copy()
+        df = self._filter_df(self._df, neighbourhood, room_type).copy()
         df["_price"] = self._price_series(df)
 
         avail_cols = {

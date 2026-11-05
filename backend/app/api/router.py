@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from backend.app.core.logging import logger
 from backend.app.api.analytics import analytics_service
+from backend.app.api.model_performance import get_model_performance
 
 
 class PredictionRequest(BaseModel):
@@ -19,9 +20,9 @@ router = APIRouter()
 
 
 @router.get("/kpis")
-async def get_kpis():
+async def get_kpis(room_type: str = "all"):
     try:
-        return analytics_service.get_kpis()
+        return analytics_service.get_kpis(room_type)
     except Exception as e:
         logger.error(f"Error retrieving KPIs: {e}")
         raise HTTPException(
@@ -31,9 +32,9 @@ async def get_kpis():
 
 
 @router.get("/price-analysis")
-async def get_price_analysis(neighbourhood: str = "all"):
+async def get_price_analysis(neighbourhood: str = "all", room_type: str = "all"):
     try:
-        return analytics_service.get_price_analysis(neighbourhood)
+        return analytics_service.get_price_analysis(neighbourhood, room_type)
     except Exception as e:
         logger.error(f"Error retrieving price analysis: {e}")
         raise HTTPException(
@@ -105,9 +106,9 @@ def get_prediction_options():
 
 
 @router.get("/host-analytics")
-def get_host_analytics(neighbourhood: str = "all"):
+def get_host_analytics(neighbourhood: str = "all", room_type: str = "all"):
     try:
-        return analytics_service.get_host_analytics(neighbourhood)
+        return analytics_service.get_host_analytics(neighbourhood, room_type)
     except Exception as e:
         logger.error(f"Error retrieving host analytics: {e}")
         raise HTTPException(
@@ -117,9 +118,9 @@ def get_host_analytics(neighbourhood: str = "all"):
 
 
 @router.get("/property-analytics")
-def get_property_analytics():
+def get_property_analytics(neighbourhood: str = "all", room_type: str = "all"):
     try:
-        return analytics_service.get_property_analytics()
+        return analytics_service.get_property_analytics(neighbourhood, room_type)
     except Exception as e:
         logger.error(f"Error retrieving property analytics: {e}")
         raise HTTPException(
@@ -129,14 +130,32 @@ def get_property_analytics():
 
 
 @router.get("/availability-analytics")
-def get_availability_analytics():
+def get_availability_analytics(neighbourhood: str = "all", room_type: str = "all"):
     try:
-        return analytics_service.get_availability_analytics()
+        return analytics_service.get_availability_analytics(neighbourhood, room_type)
     except Exception as e:
         logger.error(f"Error retrieving availability analytics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error retrieving availability analytics",
+        )
+
+
+@router.get("/model-performance")
+def model_performance():
+    try:
+        return get_model_performance()
+    except FileNotFoundError as e:
+        logger.warning(f"Model evaluation missing: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model evaluation not found. Please train the model first.",
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving model performance: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving model performance",
         )
 
 
