@@ -1,0 +1,129 @@
+{
+  "model": "stacking",
+  "n_rows": 200,
+  "n_features": 102,
+  "base_value_log_price": 3.946815087908338,
+  "max_additivity_gap": 1.6826329323649247e-05,
+  "top_features": [
+    {
+      "feature": "accommodates",
+      "mean_abs_shap": 0.14078838153558304,
+      "mean_shap": -0.027471995259018032,
+      "value_shap_corr": 0.8864771821427956
+    },
+    {
+      "feature": "latitude",
+      "mean_abs_shap": 0.1202598684147938,
+      "mean_shap": 0.002024472297005423,
+      "value_shap_corr": -0.7058301769011185
+    },
+    {
+      "feature": "availability_30",
+      "mean_abs_shap": 0.07879426444064574,
+      "mean_shap": 0.0006843080231982658,
+      "value_shap_corr": 0.858568820974765
+    },
+    {
+      "feature": "bedrooms",
+      "mean_abs_shap": 0.057163497138146786,
+      "mean_shap": -0.011924494683862868,
+      "value_shap_corr": 0.9369938226191542
+    },
+    {
+      "feature": "neighbourhood_cleansed_Commercial Triangle-Plaka",
+      "mean_abs_shap": 0.052469791270250095,
+      "mean_shap": -0.007237701510325232,
+      "value_shap_corr": 0.9233048762330524
+    },
+    {
+      "feature": "bath_per_guest",
+      "mean_abs_shap": 0.0374932752686358,
+      "mean_shap": 0.011514069255142582,
+      "value_shap_corr": 0.7839384568007912
+    },
+    {
+      "feature": "property_type_private room in rental unit",
+      "mean_abs_shap": 0.0313793899676289,
+      "mean_shap": -0.00520945281656374,
+      "value_shap_corr": -0.9691223591431359
+    },
+    {
+      "feature": "host_listings_count",
+      "mean_abs_shap": 0.029846122653761017,
+      "mean_shap": 0.0018787019946077883,
+      "value_shap_corr": 0.015630717514690466
+    },
+    {
+      "feature": "amenity_fire_extinguisher",
+      "mean_abs_shap": 0.027144625102172252,
+      "mean_shap": -0.0003620192772699603,
+      "value_shap_corr": 0.9187349690853659
+    },
+    {
+      "feature": "amenity_free_street_parking",
+      "mean_abs_shap": 0.022809275762519662,
+      "mean_shap": 0.0014320448188958417,
+      "value_shap_corr": -0.9054375326081626
+    },
+    {
+      "feature": "longitude",
+      "mean_abs_shap": 0.022322988631573035,
+      "mean_shap": 0.006553642349732597,
+      "value_shap_corr": -0.09949050013566922
+    },
+    {
+      "feature": "room_type_Shared room",
+      "mean_abs_shap": 0.021605084993706395,
+      "mean_shap": -0.010316778690663587,
+      "value_shap_corr": -0.9764605301311188
+    },
+    {
+      "feature": "availability_365",
+      "mean_abs_shap": 0.020841568505937647,
+      "mean_shap": 3.150874678250493e-05,
+      "value_shap_corr": -0.039213997689897986
+    },
+    {
+      "feature": "amenity_coffee_maker",
+      "mean_abs_shap": 0.019293126978635552,
+      "mean_shap": -0.001677394091120915,
+      "value_shap_corr": 0.9008425691044875
+    },
+    {
+      "feature": "accommodates_per_bedroom",
+      "mean_abs_shap": 0.01902161552887693,
+      "mean_shap": 0.009263760626021205,
+      "value_shap_corr": -0.1663604727670056
+    },
+    {
+      "feature": "hostverif_te",
+      "mean_abs_shap": 0.018471528262835313,
+      "mean_shap": 0.0006882427716376504,
+      "value_shap_corr": 0.4874740457237524
+    },
+    {
+      "feature": "amenity_elevator",
+      "mean_abs_shap": 0.017775810105013543,
+      "mean_shap": 2.9657031749684842e-05,
+      "value_shap_corr": 0.8683560647709305
+    },
+    {
+      "feature": "minimum_to_maximum_nights_ratio",
+      "mean_abs_shap": 0.016368070521104384,
+      "mean_shap": 0.0012967554676746463,
+      "value_shap_corr": -0.5030781418719208
+    },
+    {
+      "feature": "amenity_washer",
+      "mean_abs_shap": 0.014153958586583727,
+      "mean_shap": 0.00021948380890447256,
+      "value_shap_corr": 0.809352844363793
+    },
+    {
+      "feature": "amenity_cooking_basics",
+      "mean_abs_shap": 0.013622618151254227,
+      "mean_shap": 0.0016133225806685535,
+      "value_shap_corr": -0.8144690777784628
+    }
+  ]
+}

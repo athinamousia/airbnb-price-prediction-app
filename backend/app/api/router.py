@@ -1,0 +1,177 @@
+"""
+Analytics and plots endpoint
+"""
+
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
+
+from backend.app.core.logging import logger
+from backend.app.api.analytics import analytics_service
+from backend.app.api.model_performance import get_model_performance
+
+
+class PredictionRequest(BaseModel):
+    inputs: Dict[str, Any]
+
+
+router = APIRouter()
+
+
+@router.get("/kpis")
+async def get_kpis(room_type: str = "all"):
+    try:
+        return analytics_service.get_kpis(room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving KPIs: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving KPI metrics",
+        )
+
+
+@router.get("/price-analysis")
+async def get_price_analysis(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_price_analysis(neighbourhood, room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving price analysis: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving price analysis",
+        )
+
+
+@router.get("/geo-distribution")
+def get_geo_distribution():
+    try:
+        return analytics_service.get_geo_distribution()
+    except Exception as e:
+        logger.error(f"Error retrieving geo distribution: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving geo distribution",
+        )
+
+
+@router.get("/geo-distribution/grouped")
+def get_geo_distribution_grouped():
+    try:
+        return analytics_service.get_geo_distribution_grouped()
+    except Exception as e:
+        logger.error(f"Error retrieving grouped geo distribution: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving grouped geo distribution",
+        )
+
+
+@router.get("/property-type-distribution")
+def get_property_type_distribution(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_property_type_distribution(
+            neighbourhood, room_type
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving property type distribution: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving property type distribution",
+        )
+
+
+@router.get("/host-insights")
+def get_host_insights(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_host_insights(neighbourhood, room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving host insights: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving host insights",
+        )
+
+
+@router.get("/prediction-options")
+def get_prediction_options():
+    try:
+        return analytics_service.get_prediction_options()
+    except Exception as e:
+        logger.error(f"Error retrieving prediction options: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving prediction options",
+        )
+
+
+@router.get("/host-analytics")
+def get_host_analytics(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_host_analytics(neighbourhood, room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving host analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving host analytics",
+        )
+
+
+@router.get("/property-analytics")
+def get_property_analytics(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_property_analytics(neighbourhood, room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving property analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving property analytics",
+        )
+
+
+@router.get("/availability-analytics")
+def get_availability_analytics(neighbourhood: str = "all", room_type: str = "all"):
+    try:
+        return analytics_service.get_availability_analytics(neighbourhood, room_type)
+    except Exception as e:
+        logger.error(f"Error retrieving availability analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving availability analytics",
+        )
+
+
+@router.get("/model-performance")
+def model_performance():
+    try:
+        return get_model_performance()
+    except FileNotFoundError as e:
+        logger.warning(f"Model evaluation missing: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model evaluation not found. Please train the model first.",
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving model performance: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving model performance",
+        )
+
+
+@router.post("/predict")
+async def predict_price(request: PredictionRequest):
+    try:
+        return analytics_service.predict_price(request.inputs)
+    except FileNotFoundError as e:
+        logger.warning(f"Model artifact missing: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model artifact not found. Please train the model first.",
+        )
+    except Exception as e:
+        logger.error(f"Error during price prediction: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error computing price prediction",
+        )
